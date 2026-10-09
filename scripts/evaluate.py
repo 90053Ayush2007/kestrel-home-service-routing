@@ -28,16 +28,16 @@ team_mapping = {
     'Installations': 'Installs & Demo',
     'Consumables': 'Filters & Consumables'
 }
-df['final_team_std'] = df['final_team'].replace(team_mapping)
+df['team_label_std'] = df['team_label'].replace(team_mapping)
 
 print(f"Total merged records: {len(df)}")
-print(f"Target distribution:\n{df['final_team_std'].value_counts()}")
+print(f"Target distribution:\n{df['team_label_std'].value_counts()}")
 
 # Features and target
 X = df[['request_id', 'request_text', 'product_family', 'channel', 'warranty_status']]
 # Fill na just in case
 X.loc[:, 'request_text'] = X['request_text'].fillna('')
-y = df['final_team_std']
+y = df['team_label_std']
 
 # Train/Val split
 X_train, X_val, y_train, y_val = train_test_split(

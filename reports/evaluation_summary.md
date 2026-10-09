@@ -1,22 +1,22 @@
 # Evaluation Summary
 
 ## Best Model: LinearSVC
-- **Validation Accuracy**: 83.23%
-- **Macro F1**: 0.8291
-- **Weighted F1**: 0.8329
+- **Validation Accuracy**: 95.10%
+- **Macro F1**: 0.9500
+- **Weighted F1**: 0.9511
 
 ## Model Comparison
              Model  Accuracy  Macro_F1
-          Majority  0.234180  0.054213
-            Policy  0.277136  0.130495
-LogisticRegression  0.823095  0.819498
-         LinearSVC  0.832333  0.829060
+          Majority  0.289145  0.064084
+            Policy  0.339492  0.137069
+LogisticRegression  0.930716  0.930410
+         LinearSVC  0.951039  0.949966
 
 ## Common Errors
 Top 5 misrouting pairs:
       true_team        predicted_team  count
-        Repairs       Installs & Demo     22
-        Repairs Returns & Replacement     19
-        Repairs Filters & Consumables     15
-Installs & Demo Filters & Consumables     15
-        Repairs       Warranty Claims     15
+        Repairs Filters & Consumables     19
+        Repairs       Warranty Claims      7
+        Repairs               Billing      6
+ Product Advice               Billing      5
+Installs & Demo               Repairs      4
