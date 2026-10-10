@@ -10,6 +10,8 @@ interface RouteResponse {
   model_version: string;
   needs_review: boolean;
   review_reason: string | null;
+  is_safety_incident: boolean;
+  safety_triggers: string[];
 }
 
 interface ModelInfo {
@@ -150,7 +152,16 @@ function App() {
             
             <div className="form-group">
               <label>Product Family</label>
-              <input type="text" className="form-control" value={formData.product_family} onChange={e => setFormData({...formData, product_family: e.target.value})} required />
+              <select className="form-control" value={formData.product_family} onChange={e => setFormData({...formData, product_family: e.target.value})}>
+                <option value="Air Purifier">Air Purifier</option>
+                <option value="Robot Vacuum">Robot Vacuum</option>
+                <option value="Water Purifier">Water Purifier</option>
+                <option value="Air Fryer">Air Fryer</option>
+                <option value="Room Heater">Room Heater</option>
+                <option value="Induction Cooktop">Induction Cooktop</option>
+                <option value="Mixer Grinder">Mixer Grinder</option>
+                <option value="Ceiling Fan">Ceiling Fan</option>
+              </select>
             </div>
             
             <div className="form-group">
@@ -181,23 +192,29 @@ function App() {
 
           {result && (
             <>
-              {result.needs_review && (
+              {result.is_safety_incident && (
+                <div className="alert alert-danger" style={{ borderLeft: '4px solid #ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>
+                  <strong>🚨 Potential Safety Incident — Urgent Human Review</strong><br/>
+                  Trigger words detected: {result.safety_triggers.join(', ')}
+                </div>
+              )}
+              {result.needs_review && !result.is_safety_incident && (
                 <div className="alert alert-warning">
                   <strong>⚠️ Human Review Recommended</strong><br/>
                   {result.review_reason}
                 </div>
               )}
               
-              <div className="stat-box" style={{ borderLeft: `4px solid ${result.needs_review ? 'var(--warning)' : 'var(--success)'}` }}>
+              <div className="stat-box" style={{ borderLeft: `4px solid ${result.is_safety_incident ? 'var(--danger)' : result.needs_review ? 'var(--warning)' : 'var(--success)'}` }}>
                 <h3>Predicted Destination Team</h3>
-                <p style={{ color: result.needs_review ? 'var(--warning)' : 'var(--success)' }}>
+                <p style={{ color: result.is_safety_incident ? 'var(--danger)' : result.needs_review ? 'var(--warning)' : 'var(--success)' }}>
                   {result.predicted_team}
                 </p>
               </div>
               
               <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem' }}>
                 <div className="stat-box" style={{ flex: 1 }}>
-                  <h3>Confidence</h3>
+                  <h3>Confidence Score (Uncalibrated)</h3>
                   <p>{(result.confidence * 100).toFixed(1)}%</p>
                 </div>
                 <div className="stat-box" style={{ flex: 1 }}>
@@ -218,7 +235,7 @@ function App() {
           )}
 
           <div style={{ marginTop: 'auto', paddingTop: '2rem' }}>
-            <h3 style={{ margin: '0 0 1rem 0', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>Model Performance (Live Eval)</h3>
+            <h3 style={{ margin: '0 0 1rem 0', borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem' }}>Validation Performance</h3>
             {modelInfo?.metrics ? (
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
                 <div>
@@ -226,7 +243,7 @@ function App() {
                   <div style={{ fontWeight: '600' }}>{(modelInfo.metrics.accuracy * 100).toFixed(1)}%</div>
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Macro F1</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Validation Macro-F1</div>
                   <div style={{ fontWeight: '600' }}>{(modelInfo.metrics.macro_f1 * 100).toFixed(1)}%</div>
                 </div>
               </div>

@@ -44,6 +44,8 @@ class RouteResponse(BaseModel):
     model_version: str
     needs_review: bool
     review_reason: Optional[str] = None
+    is_safety_incident: bool = False
+    safety_triggers: list[str] = []
 
 @app.get("/health")
 def health():
@@ -103,6 +105,26 @@ def route_request(req: ServiceRequest):
     except Exception:
         confidence = 0.0
     
+    # Safety Check
+    import re
+    safety_patterns = [r'\bfire\b', r'\bsmoke\b', r'\bburn(?:ing|t)?\b', r'electric(?:al)? shock', r'overheating', r'\bspark(?:s|ing)?\b']
+    negation_patterns = [r'\bno\b', r'\bnot\b', r'\bdidn\'t\b', r'\bdoes not\b', r'\bnever\b', r'\bwithout\b']
+    
+    safety_triggers = []
+    text_lower = req.request_text.lower()
+    
+    for pattern in safety_patterns:
+        for match in re.finditer(pattern, text_lower):
+            # Check context window (previous 3 words) for negations
+            start = max(0, match.start() - 25)
+            context = text_lower[start:match.start()]
+            if not any(re.search(neg, context) for neg in negation_patterns):
+                safety_triggers.append(match.group())
+    
+    # Deduplicate triggers
+    safety_triggers = list(set(safety_triggers))
+    is_safety_incident = len(safety_triggers) > 0
+
     # Reasons & Signals
     reasons = []
     signals = {
@@ -111,20 +133,39 @@ def route_request(req: ServiceRequest):
         "warranty_status": req.warranty_status
     }
     
+    if is_safety_incident:
+        reasons.append(f"CRITICAL: Message indicates a potential safety hazard (trigger words: {', '.join(safety_triggers)}).")
+        
     billing_keywords = ['invoice', 'gst', 'double charge', 'refund', 'emi conversion']
-    text_lower = req.request_text.lower()
     if any(k in text_lower for k in billing_keywords):
-        reasons.append("Contains billing-related keywords.")
+        reasons.append("Detected keywords related to payments or invoices.")
+        
+    return_keywords = ['damage', 'broken', 'wrong', 'missing', 'return', 'exchange', 'incomplete']
+    if predicted_team == 'Returns & Replacement' and any(k in text_lower for k in return_keywords):
+        reasons.append("Text mentions physical damage, returns, or wrong deliveries.")
+        
+    repair_keywords = ['noise', 'leak', 'not working', 'error', 'fault', 'broken']
+    if predicted_team == 'Repairs' and any(k in text_lower for k in repair_keywords):
+        reasons.append("Reported symptoms typically requiring a technician visit.")
     
     if req.warranty_status == 'out_of_warranty' and predicted_team == 'Repairs':
-        reasons.append("Out of warranty request categorized as Repair (Chargeable).")
+        reasons.append("Flagged as a chargeable repair due to out-of-warranty status.")
         
-    reasons.append(f"Model identified text patterns strongly aligning with {predicted_team}.")
+    if not reasons:
+        reasons.append(f"Model routed to {predicted_team} based on historical patterns for {req.product_family}.")
     
-    needs_review = confidence < 0.40 # threshold for review
-    review_reason = "Low confidence prediction due to ambiguous language." if needs_review else None
+    needs_review = confidence < 0.40 or is_safety_incident
+    
+    review_reason = None
+    if needs_review:
+        reasons_list = []
+        if is_safety_incident:
+            reasons_list.append("Potential safety hazard detected.")
+        if confidence < 0.40:
+            reasons_list.append(f"Low model confidence ({round(confidence*100, 1)}%).")
+        review_reason = " ".join(reasons_list)
 
-    # Hard policy checks (Safety overrides if we wanted, but prompt says predict 1 of 7 teams, review is a safeguard not 8th team)
+    # Hard policy checks
     
     return RouteResponse(
         predicted_team=predicted_team,
@@ -133,5 +174,7 @@ def route_request(req: ServiceRequest):
         signals=signals,
         model_version="v1.0.0",
         needs_review=needs_review,
-        review_reason=review_reason
+        review_reason=review_reason,
+        is_safety_incident=is_safety_incident,
+        safety_triggers=safety_triggers
     )
